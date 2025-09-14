@@ -47,7 +47,7 @@ const getUserPurchases = async (req, res) => {
     const userId = req.user._id;
 
     const purchases = await Purchase.find({ userId })
-      .populate("courseId", "title description instructor price")
+      .populate("courseId", "title description instructor price") // fetch from course collection
       .sort({ purchaseDate: -1 });
 
     res.json({
