@@ -1,6 +1,10 @@
 import express from "express";
 import cors from "cors";
 import { config } from "dotenv";
+import connectDB from "./src/config/database.js";
+import authRoutes from "./src/routes/authRoutes.js";
+import courseRoutes from "./src/routes/courseRoutes.js";
+import purchaseRoutes from "./src/routes/purchaseRoutes.js";
 
 config(); // Load environment variables from .env file
 

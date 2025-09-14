@@ -5,7 +5,7 @@ const generateTokens = (userId) => {
 
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET);
 
-  // const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET,);
+  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET);
 
   return { accessToken, refreshToken };
 };

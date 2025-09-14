@@ -1,116 +1,67 @@
 import User from "../models/User.js";
 import tokenUtils from "../utils/tokenUtils.js";
 
-const register = async (req, res, next) => {
+const authenticate = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const authHeader = req.header("Authorization");
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
         success: false,
-        message: "User with this email already exists",
+        message: "Access denied. No token provided or invalid format.",
       });
     }
 
-    const user = await User.create({
-      name,
-      email,
-      password,
-    });
+    const token = authHeader.substring(7); // Remove 'Bearer' prefix
 
-    const { accessToken, refreshToken } = tokenUtils.generateTokens(user._id); // token for registered user
-
-    user.refreshTokens.push({ token: refreshToken });
-    await user.save();
-
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      data: {
-        user,
-        accessToken,
-        refreshToken,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email }).select("+password"); // Find user and include password for comparison
+    const decoded = tokenUtils.verifyToken(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid token. User not found.",
       });
     }
 
-    const isPasswordValid = await user.comparePassword(password); // check the input password with bycrypt password in the database
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    const { accessToken, refreshToken } = tokenUtils.generateTokens(user._id);
-
-    user.refreshTokens.push({ token: refreshToken });
-    await user.save();
-
-    user.password = undefined; // Remove password from response
-
-    res.json({
-      success: true,
-      message: "Login successful",
-      data: {
-        user,
-        accessToken,
-        refreshToken,
-      },
-    });
+    req.user = user;
+    next();
   } catch (error) {
-    next(error);
+    return res.status(401).json({
+      success: false,
+      message: "Invalid token.",
+    });
   }
 };
 
-const logout = async (req, res, next) => {
-  try {
-    const { refreshToken: token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Refresh token is required",
-      });
-    }
-
-    // Remove refresh token from user
-    const user = await User.findById(req.user._id);
-    if (user) {
-      user.refreshTokens = user.refreshTokens.filter(
-        (rt) => rt.token !== token
-      );
-      await user.save();
-    }
-
-    res.json({
-      success: true,
-      message: "Logout successful",
+// Admin role authorization
+const authorizeAdmin = (req, res, next) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admin privileges required.",
     });
-  } catch (error) {
-    next(error);
   }
+  next();
+};
+
+// Check if user owns the resource
+const authorizeOwnerOrAdmin = (req, res, next) => {
+  if (
+    req.user.role === "admin" ||
+    req.user._id.toString() === req.params.userId
+  ) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: "Access denied. You can only access your own resources.",
+  });
 };
 
 export default {
-  register,
-  login,
-  logout,
+  authenticate,
+  authorizeAdmin,
+  authorizeOwnerOrAdmin,
 };
