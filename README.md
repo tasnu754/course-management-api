@@ -1,6 +1,6 @@
 # **Course Management API**
 
-A comprehensive RESTful API for managing courses, user authentication, and course purchases built with Node.js, Express.js, and MongoDB.
+A comprehensive RESTful API for managing courses, user authentication, and course purchases built with Node.js, Express.js, and MongoDB (Mongoose).
 
 ## **Features**
 
