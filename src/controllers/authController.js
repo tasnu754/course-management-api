@@ -38,6 +38,83 @@ const register = async (req, res, next) => {
   }
 };
 
+// Login user
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find user and include password for comparison
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const { accessToken, refreshToken } = tokenUtils.generateTokens(user._id);
+
+    user.refreshTokens.push({ token: refreshToken });
+    await user.save();
+
+    // Remove password from response
+    user.password = undefined;
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      data: {
+        user,
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Logout user
+const logout = async (req, res, next) => {
+  try {
+    const { refreshToken: token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Refresh token is required",
+      });
+    }
+
+    // Remove refresh token from user
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.refreshTokens = user.refreshTokens.filter(
+        (rt) => rt.token !== token
+      );
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   register,
+  login,
+  logout,
 };
